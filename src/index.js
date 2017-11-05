@@ -123,21 +123,16 @@ class ServerlessSharedapiGateway {
     this.restApiName = this.serverless.service.provider.apiGatewayRestApiName
     this.restApiResourceId = this.serverless.service.provider.apiGatewayRestApiResourceId
 
-    // TODOO : Skip findRestApi if it is provided.
+    if (!this.restApiId && !this.restApiName) throw new Error(`Unable to continue please provide an apiId or apiName`)
+
     return this.findRestApi()
-      .then(restApi => {
-        this.restApiId = restApi.id
-        if (!this.restApiResourceId) {
-          // TODO : go and get the id from the root path in the restApi that was found
-          throw new Error(`Opps I haven't got to this yet`)
-        }
-        this._processCloudFormation()
-      })
+      .then(() => this.findResourceId())
+      .then(() => this._processCloudFormation())
   }
 
   _findMatchingRestApi (api) {
     if (this.restApiId) return api.id === this.restApiId
-    if (this.restApiName) return api.name === this.restApiName
+    else if (this.restApiName) return api.name === this.restApiName
     return false
   }
 
@@ -147,17 +142,42 @@ class ServerlessSharedapiGateway {
     const getRestApis = this.apiGateway.getRestApis({}).promise()
     return getRestApis.then((data) => {
       if (this.restApiName) {
-        let matchingApis = data.items.filter(api => this._findMatchingRestApi(api))
-        if (matchingApis && matchingApis.length > 1) throw new Error(`Found multiple APIs with the name: ${this.restApiName}. Please rename your api or specify an apiGatewayRestApiId`)
+        let matchingRestApis = data.items.filter(api => this._findMatchingRestApi(api))
+        if (matchingRestApis && matchingRestApis.length > 1) throw new Error(`Found multiple APIs with the name: ${this.restApiName}. Please rename your api or specify an apiGatewayRestApiId`)
       }
 
-      let matchingApi = data.items.find(api => this._findMatchingRestApi(api))
-      if (this.restApiName && !matchingApi) {
+      let matchingRestApi = data.items.find(api => this._findMatchingRestApi(api))
+      if (this.restApiName && !matchingRestApi) {
         console.log('Unable to find a matching API Gateway attempting to create one.')
 
         return this.createRestApi()
       }
-      return matchingApi
+      return matchingRestApi
+    }).then(restApi => {
+      this.restApiId = restApi.id
+      this.restApiName = restApi.name
+    })
+  }
+
+  _findMatchingResource (resource) {
+    if (this.restApiResourceId) return resource.id === this.restApiResourceId
+    else return resource.path === '/'
+  }
+
+  findResourceId () {
+    this._initializeVariables()
+
+    if (!this.restApiId) throw new Error(`You must have a restApiId. Did you forget to run findRestApi?`)
+
+    const getResources = this.apiGateway.getResources({restApiId: this.restApiId}).promise()
+
+    return getResources.then(data => {
+      let matchingResource = data.items.find(resource => this._findMatchingResource(resource))
+      if (!matchingResource) console.log('Unable to find a matching API Gateway resource. Please check the id and try again.')
+
+      return matchingResource
+    }).then(resource => {
+      this.restApiResourceId = resource.id
     })
   }
 }
