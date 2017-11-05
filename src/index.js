@@ -151,7 +151,7 @@ class ServerlessSharedapiGateway {
 
       let matchingRestApi = data.items.find(api => this._findMatchingRestApi(api))
       if (this.restApiName && !matchingRestApi) {
-        console.log('Unable to find a matching API Gateway attempting to create one.')
+        this.serverless.cli.log(`No API Gateway matching '${this.restApiName}' attempting to create it.`)
 
         return this.createRestApi()
       }
