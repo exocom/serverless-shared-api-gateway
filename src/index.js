@@ -79,13 +79,16 @@ class ServerlessSharedapiGateway {
 
   _sourceArnReplaceRestApi (arr) {
     return arr.map(item => {
-      if (item && item.Ref && item.Ref === this.serverless.apiGatewayRestApiLogicalId) item.Ref = this.restApiId
+      if (Array.isArray(item)) return this._sourceArnReplaceRestApi(item)
+      if (item && item.Ref && item.Ref === this.apiGatewayRestApiLogicalId) return this.restApiId
       else if (item && item['Fn::GetAtt']) return this.restApiResourceId
       return item
     })
   }
 
   _processCloudFormation () {
+    this.apiGatewayRestApiLogicalId = this.serverless.pluginManager.plugins.find(plugin => plugin.apiGatewayRestApiLogicalId).apiGatewayRestApiLogicalId
+
     // Set restApiId on provider
     this.serverless.service.provider.apiGatewayRestApiId = this.restApiId
 
@@ -95,15 +98,18 @@ class ServerlessSharedapiGateway {
     let ccfTemplate = this.serverless.service.provider.compiledCloudFormationTemplate
     let Resources = ccfTemplate.Resources
 
+    // Remove ApiGatewayRestApi
+    if (Resources.ApiGatewayRestApi) delete Resources.ApiGatewayRestApi
+
     const resourceKeys = Object.keys(Resources)
     resourceKeys.forEach(key => {
-      if (/^apiGateway(Resource|Method|Deployment)/.test(key)) {
+      if (/^ApiGateway(Resource|Method|Deployment)/.test(key)) {
         let Properties = Resources[key].Properties
         // Set restApiId on each Resource, Method, & Deployment
-        if (Properties && Properties.RestApiId && Properties.RestApiId.Ref && Properties.RestApiId.Ref === 'ApiGatewayRestApi') Properties.RestApiId = this.restApiId
+        if (Properties && Properties.RestApiId && Properties.RestApiId.Ref && Properties.RestApiId.Ref === this.apiGatewayRestApiLogicalId) Properties.RestApiId = this.restApiId
         // Set restApiResourceId as ParentId
-        if (Properties && Properties.ParentId && Properties.ParentId.Ref && Properties.ParentId['Fn::GetAtt']) Properties.ParentId = this.restApiResourceId
-      } else if (/^(RegisterLambdaPermissionapiGateway|GetLambdaPermissionapiGateway)/.test(key)) {
+        if (Properties && Properties.ParentId && Properties.ParentId['Fn::GetAtt']) Properties.ParentId = this.restApiResourceId
+      } else if (/^(RegisterLambdaPermissionApiGateway|GetLambdaPermissionApiGateway)/.test(key)) {
         Resources[key].Properties.SourceArn['Fn::Join'] = this._sourceArnReplaceRestApi(Resources[key].Properties.SourceArn['Fn::Join'])
       }
     })
@@ -117,9 +123,14 @@ class ServerlessSharedapiGateway {
     this.restApiName = this.serverless.service.provider.apiGatewayRestApiName
     this.restApiResourceId = this.serverless.service.provider.apiGatewayRestApiResourceId
 
+    // TODOO : Skip findRestApi if it is provided.
     return this.findRestApi()
       .then(restApi => {
         this.restApiId = restApi.id
+        if (!this.restApiResourceId) {
+          // TODO : go and get the id from the root path in the restApi that was found
+          throw new Error(`Opps I haven't got to this yet`)
+        }
         this._processCloudFormation()
       })
   }
