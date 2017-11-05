@@ -101,6 +101,9 @@ class ServerlessSharedapiGateway {
     // Remove ApiGatewayRestApi
     if (Resources.ApiGatewayRestApi) delete Resources.ApiGatewayRestApi
 
+    // Set restApiId on custom domain names
+    if (Resources.pathmapping) Resources.pathmapping.Properties.RestApiId = this.restApiId
+
     const resourceKeys = Object.keys(Resources)
     resourceKeys.forEach(key => {
       if (/^ApiGateway(Resource|Method|Deployment)/.test(key)) {
