@@ -62,8 +62,10 @@ class ServerlessSharedapiGateway {
   }
 
   _sourceArnReplaceRestApi (arr) {
-    arr.forEach(item => {
-      if (item && item.Ref && item.Ref === 'apiGatewayRestApi') item.Ref = this.restApiId
+    return arr.map(item => {
+      if (item && item.Ref && item.Ref === this.serverless.apiGatewayRestApiLogicalId) item.Ref = this.restApiId
+      else if (item && item['Fn::GetAtt']) return this.restApiResourceId
+      return item
     })
   }
 
@@ -86,12 +88,12 @@ class ServerlessSharedapiGateway {
         // Set restApiResourceId as ParentId
         if (Properties && Properties.ParentId && Properties.ParentId.Ref && Properties.ParentId['Fn::GetAtt']) Properties.ParentId = this.restApiResourceId
       } else if (/^(RegisterLambdaPermissionapiGateway|GetLambdaPermissionapiGateway)/.test(key)) {
-        this._sourceArnReplaceRestApi(Resources[key].Properties.SourceArn['Fn::Join'])
+        Resources[key].Properties.SourceArn['Fn::Join'] = this._sourceArnReplaceRestApi(Resources[key].Properties.SourceArn['Fn::Join'])
       }
     })
 
     // Set restApiId on Outputs
-    this._sourceArnReplaceRestApi(ccfTemplate.Outputs.ServiceEndpoint.Value['Fn::Join'])
+    ccfTemplate.Outputs.ServiceEndpoint.Value['Fn::Join'] = this._sourceArnReplaceRestApi(ccfTemplate.Outputs.ServiceEndpoint.Value['Fn::Join'])
   }
 
   compileEvents () {
