@@ -7,7 +7,8 @@ class ServerlessSharedapiGateway {
     this.serverless = serverless
     this.options = options
 
-    this.apiGateway = new AWS.APIGateway()
+    // Indicate if variables are initialized to avoid run multiples init
+    this.initialized = false
     this.restApiId = null
     this.restApiName = null
     this.restApiResourceId = null
@@ -44,7 +45,20 @@ class ServerlessSharedapiGateway {
     }
   }
 
+  _initializeVariables () {
+    if (!this.initialized) {
+      // Sets the credentials for AWS resources.
+      const awsCreds = this.serverless.providers.aws.getCredentials()
+      AWS.config.update(awsCreds)
+      this.apiGateway = new AWS.APIGateway()
+
+      this.initialized = true
+    }
+  }
+
   createRestApi () {
+    this._initializeVariables()
+
     return this.apiGateway.createRestApi({
       name: this.restApiName,
       // binaryMediaTypes: [],
@@ -58,6 +72,8 @@ class ServerlessSharedapiGateway {
   }
 
   deleteRestApi () {
+    this._initializeVariables()
+
     return null
   }
 
@@ -97,9 +113,13 @@ class ServerlessSharedapiGateway {
   }
 
   compileEvents () {
+    this.restApiId = this.serverless.service.provider.apiGatewayRestApiId
+    this.restApiName = this.serverless.service.provider.apiGatewayRestApiName
+    this.restApiResourceId = this.serverless.service.provider.apiGatewayRestApiResourceId
+
     return this.findRestApi()
       .then(restApi => {
-        this.restApiId = restApi
+        this.restApiId = restApi.id
         this._processCloudFormation()
       })
   }
@@ -111,10 +131,12 @@ class ServerlessSharedapiGateway {
   }
 
   findRestApi () {
+    this._initializeVariables()
+
     const getRestApis = this.apiGateway.getRestApis({}).promise()
-    getRestApis.then((data) => {
+    return getRestApis.then((data) => {
       if (this.restApiName) {
-        let matchingApis = data.filter(api => this._findMatchingRestApi(api))
+        let matchingApis = data.items.filter(api => this._findMatchingRestApi(api))
         if (matchingApis && matchingApis.length > 1) throw new Error(`Found multiple APIs with the name: ${this.restApiName}. Please rename your api or specify an apiGatewayRestApiId`)
       }
 
