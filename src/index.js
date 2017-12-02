@@ -112,7 +112,7 @@ class ServerlessSharedapiGateway {
         if (Properties && Properties.RestApiId && Properties.RestApiId.Ref && Properties.RestApiId.Ref === this.apiGatewayRestApiLogicalId) Properties.RestApiId = this.restApiId
         // Set restApiResourceId as ParentId
         if (Properties && Properties.ParentId && Properties.ParentId['Fn::GetAtt']) Properties.ParentId = this.restApiResourceId
-      } else if (/^(RegisterLambdaPermissionApiGateway|GetLambdaPermissionApiGateway|LoginLambdaPermissionApiGateway)/.test(key)) {
+      } else if (/.+?LambdaPermissionApiGateway$/.test(key)) {
         Resources[key].Properties.SourceArn['Fn::Join'] = this._sourceArnReplaceRestApi(Resources[key].Properties.SourceArn['Fn::Join'])
       }
     })
