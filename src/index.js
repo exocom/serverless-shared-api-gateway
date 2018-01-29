@@ -147,6 +147,8 @@ class ServerlessSharedapiGateway {
       if (this.restApiName) {
         let matchingRestApis = data.items.filter(api => this._findMatchingRestApi(api))
         if (matchingRestApis && matchingRestApis.length > 1) throw new Error(`Found multiple APIs with the name: ${this.restApiName}. Please rename your api or specify an apiGatewayRestApiId`)
+        let provider = this.serverless.getProvider('aws')
+        if (provider) provider.naming.getApiGatewayName = () => this.restApiName
       }
 
       let matchingRestApi = data.items.find(api => this._findMatchingRestApi(api))
