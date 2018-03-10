@@ -2,7 +2,7 @@
 
 const AWS = require('aws-sdk')
 
-class ServerlessSharedapiGateway {
+class ServerlessSharedApiGateway {
   constructor (serverless, options) {
     this.serverless = serverless
     this.options = options
@@ -187,4 +187,4 @@ class ServerlessSharedapiGateway {
   }
 }
 
-module.exports = ServerlessSharedapiGateway
+module.exports = ServerlessSharedApiGateway
