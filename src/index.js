@@ -1,6 +1,7 @@
 'use strict'
 
 const AWS = require('aws-sdk')
+const chalk = require('chalk')
 
 class ServerlessSharedApiGateway {
   constructor (serverless, options) {
@@ -41,7 +42,8 @@ class ServerlessSharedApiGateway {
     this.hooks = {
       'shared_api_gateway:delete:delete': this.deleteRestApi.bind(this),
       'shared_api_gateway:create:create': this.createRestApi.bind(this),
-      'after:package:compileEvents': this.compileEvents.bind(this)
+      'after:package:compileEvents': this.compileEvents.bind(this),
+      'after:info:info': this.summary.bind(this),
     }
   }
 
@@ -87,7 +89,8 @@ class ServerlessSharedApiGateway {
   }
 
   _processCloudFormation () {
-    this.apiGatewayRestApiLogicalId = this.serverless.pluginManager.plugins.find(plugin => plugin.apiGatewayRestApiLogicalId).apiGatewayRestApiLogicalId
+    const plugin = this.serverless.pluginManager.plugins.find(plugin => plugin.apiGatewayRestApiLogicalId)
+    this.apiGatewayRestApiLogicalId = plugin && plugin.apiGatewayRestApiLogicalId
 
     // Set restApiId on provider
     this.serverless.service.provider.apiGatewayRestApiId = this.restApiId
@@ -104,21 +107,25 @@ class ServerlessSharedApiGateway {
     // Set restApiId on custom domain names
     if (Resources.pathmapping) Resources.pathmapping.Properties.RestApiId = this.restApiId
 
-    const resourceKeys = Object.keys(Resources)
-    resourceKeys.forEach(key => {
-      if (/^ApiGateway(Resource|Method|Deployment)/.test(key)) {
-        let Properties = Resources[key].Properties
-        // Set restApiId on each Resource, Method, & Deployment
-        if (Properties && Properties.RestApiId && Properties.RestApiId.Ref && Properties.RestApiId.Ref === this.apiGatewayRestApiLogicalId) Properties.RestApiId = this.restApiId
-        // Set restApiResourceId as ParentId
-        if (Properties && Properties.ParentId && Properties.ParentId['Fn::GetAtt']) Properties.ParentId = this.restApiResourceId
-      } else if (/.+?LambdaPermissionApiGateway$/.test(key)) {
-        Resources[key].Properties.SourceArn['Fn::Join'] = this._sourceArnReplaceRestApi(Resources[key].Properties.SourceArn['Fn::Join'])
-      }
-    })
+    if (this.apiGatewayRestApiLogicalId) {
+      const resourceKeys = Object.keys(Resources)
+      resourceKeys.forEach(key => {
+        if (/^ApiGateway(Resource|Method|Deployment)/.test(key)) {
+          let Properties = Resources[key].Properties
+          // Set restApiId on each Resource, Method, & Deployment
+          if (Properties && Properties.RestApiId && Properties.RestApiId.Ref && Properties.RestApiId.Ref === this.apiGatewayRestApiLogicalId) Properties.RestApiId = this.restApiId
+          // Set restApiResourceId as ParentId
+          if (Properties && Properties.ParentId && Properties.ParentId['Fn::GetAtt']) Properties.ParentId = this.restApiResourceId
+        } else if (/.+?LambdaPermissionApiGateway$/.test(key)) {
+          Resources[key].Properties.SourceArn['Fn::Join'] = this._sourceArnReplaceRestApi(Resources[key].Properties.SourceArn['Fn::Join'])
+        }
+      })
+    }
 
     // Set restApiId on Outputs
-    ccfTemplate.Outputs.ServiceEndpoint.Value['Fn::Join'] = this._sourceArnReplaceRestApi(ccfTemplate.Outputs.ServiceEndpoint.Value['Fn::Join'])
+    if (ccfTemplate.Outputs && ccfTemplate.Outputs.ServiceEndpoint && ccfTemplate.Outputs.ServiceEndpoint.Value) {
+      ccfTemplate.Outputs.ServiceEndpoint.Value['Fn::Join'] = this._sourceArnReplaceRestApi(ccfTemplate.Outputs.ServiceEndpoint.Value['Fn::Join'])
+    }
   }
 
   compileEvents () {
@@ -184,6 +191,18 @@ class ServerlessSharedApiGateway {
     }).then(resource => {
       this.restApiResourceId = resource.id
     })
+  }
+
+  summary () {
+    this.serverless.cli.consoleLog(chalk.yellow.underline('Serverless Shared API Gateway Summary'))
+
+    this.serverless.cli.consoleLog(chalk.yellow('Name'))
+    this.serverless.cli.consoleLog(`  ${this.restApiName}`)
+
+    if (this.restApiId) {
+      this.serverless.cli.consoleLog(chalk.yellow('ID'))
+      this.serverless.cli.consoleLog(`  ${this.restApiId}`)
+    }
   }
 }
 
