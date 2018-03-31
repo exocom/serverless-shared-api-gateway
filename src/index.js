@@ -181,6 +181,8 @@ class ServerlessSharedApiGateway {
 
     if (!this.restApiId) throw new Error(`You must have a restApiId. Did you forget to run findRestApi?`)
 
+    // TODO: Ideally this should handle pagination. If there are more than 500 resources it should make several calls with different "position" values
+    // Ref: https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/APIGateway.html#getResources-property
     const getResources = this.apiGateway.getResources({restApiId: this.restApiId, limit: 500}).promise()
 
     return getResources.then(data => {
