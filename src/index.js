@@ -181,7 +181,7 @@ class ServerlessSharedApiGateway {
 
     if (!this.restApiId) throw new Error(`You must have a restApiId. Did you forget to run findRestApi?`)
 
-    const getResources = this.apiGateway.getResources({restApiId: this.restApiId}).promise()
+    const getResources = this.apiGateway.getResources({restApiId: this.restApiId, limit: 500}).promise()
 
     return getResources.then(data => {
       let matchingResource = data.items.find(resource => this._findMatchingResource(resource))
