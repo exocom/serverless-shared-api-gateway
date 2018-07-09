@@ -109,8 +109,7 @@ class ServerlessSharedApiGateway {
     if (Resources.pathmapping) Resources.pathmapping.Properties.RestApiId = this.restApiId
 
     if (this.apiGatewayRestApiLogicalId) {
-      const resourceKeys = Object.keys(Resources)
-      resourceKeys.forEach(key => {
+      Object.keys(Resources).forEach(key => {
         if (/^ApiGateway(Resource|Method|Deployment)/.test(key)) {
           let Properties = Resources[key].Properties
           // Set restApiId on each Resource, Method, & Deployment
@@ -184,24 +183,23 @@ class ServerlessSharedApiGateway {
     this.restApiName = matchingRestApi.name
   }
 
-  _findAndRemoveExistingResources () {
+  findExistingResources () {
     if (!this.resources) throw new Error(`You must have a list of the current resources. Did you forget to run loadResourcesForApi?`)
 
-    let Resources = this.serverless.service.provider.compiledCloudFormationTemplate.Resources
-    let existingResources = Object.keys(Resources).reduce((arr, key) => {
-      let item = Resources[key]
+    const Resources = this.serverless.service.provider.compiledCloudFormationTemplate.Resources
+    return Object.keys(Resources).reduce((arr, key) => {
+      const item = Resources[key]
       if (item.Type === 'AWS::ApiGateway::Resource') {
-        let match = this.resources.find(r => r.pathPart === item.Properties.PathPart && r.parentId === item.Properties.ParentId) || null
-        if (match) {
-          arr.push({
-            key,
-            id: match.id,
-            parentId: match.parentId
-          })
-        }
+        const match = this.resources.find(r => r.pathPart === item.Properties.PathPart && r.parentId === item.Properties.ParentId) || null
+        if (match) arr.push({key, id: match.id, parentId: match.parentId})
       }
       return arr
     }, [])
+  }
+
+  _findAndRemoveExistingResources () {
+    const existingResources = this.findExistingResources()
+    const Resources = this.serverless.service.provider.compiledCloudFormationTemplate.Resources
 
     // Remove existing resources from the cloud formation
     existingResources.forEach(er => {

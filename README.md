@@ -1,7 +1,7 @@
 Serverless Shared API Gateway Plugin
 ====================================
 
-[![Build Status](https://travis-ci.org/exocom/serverless-shared-api-gateway.svg)](https://travis-ci.org/exocom/serverless-shared-api-gateway)
+[![Build Status](https://travis-ci.org/kalarrs/serverless-shared-api-gateway.svg)](https://travis-ci.org/kalarrs/serverless-shared-api-gateway)
 
 This plugin allows you to have multiple serverless projects update a single api gateway on aws.
 
