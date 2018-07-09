@@ -3,10 +3,11 @@ service:
 
 provider:
   name: aws
-  runtime: nodejs6.10
+  runtime: nodejs8.10
   environment:
     NODE_ENV: "dev"
     SERVICE_NAME: ${self:service.name}
+  apiGatewayRestApiName: "test"
 
 functions:
   create:
@@ -18,40 +19,27 @@ functions:
           cors: true
     environment:
       NODE_ENV: "test"
-  remove:
-      handler: src/handler.remove
-      events:
-        - http:
-            method: delete
-            path: "pandas/{pandaId}"
-            cors: true
-  get:
-    handler: src/handler.get
-    events:
-      - http:
-          method: get
-          path: "pandas/{pandaId}"
-          cors: true
-  update:
-    handler: src/handler.update
-    events:
-      - http:
-          method: put
-          path: "panda/{pandaId}"
-          cors: true
-
-  referentialIntegrity:
-    handler: src/handler.referentialIntegrity
-    events:
-      - schedule: rate(1 day)
-      - schedule:
-          rate: cron(0 10 * * ? *)
-          enabled: false
-          input:
-            key1: value1
-            key2: value2
-            stageParams:
-              stage: dev
+#  remove:
+#      handler: src/handler.remove
+#      events:
+#        - http:
+#            method: delete
+#            path: "pandas/{pandaId}"
+#            cors: true
+#  get:
+#    handler: src/handler.get
+#    events:
+#      - http:
+#          method: get
+#          path: "pandas/{pandaId}"
+#          cors: true
+#  update:
+#    handler: src/handler.update
+#    events:
+#      - http:
+#          method: put
+#          path: "panda/{pandaId}"
+#          cors: true
 
 custom:
   localDevPort: 5999
