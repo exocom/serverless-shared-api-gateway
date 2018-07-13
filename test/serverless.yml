@@ -7,7 +7,6 @@ provider:
   environment:
     NODE_ENV: "dev"
     SERVICE_NAME: ${self:service.name}
-  apiGatewayRestApiName: "test"
 
 functions:
   create:

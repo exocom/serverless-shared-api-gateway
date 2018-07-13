@@ -23,7 +23,6 @@
     "lint": "standard"
   },
   "dependencies": {
-    "aws-sdk": "^2.270.1",
     "chalk": "^2.3.2"
   },
   "devDependencies": {

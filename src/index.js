@@ -1,6 +1,4 @@
 'use strict'
-
-const AWS = require('aws-sdk')
 const chalk = require('chalk')
 
 class ServerlessSharedApiGateway {
@@ -54,8 +52,7 @@ class ServerlessSharedApiGateway {
   _initializeVariables () {
     if (!this.initialized) {
       const awsCreds = this.serverless.providers.aws.getCredentials()
-      AWS.config.update(awsCreds)
-      this.apiGateway = new AWS.APIGateway()
+      this.apiGateway = new this.serverless.providers.aws.sdk.APIGateway(awsCreds)
       this.initialized = true
     }
   }
@@ -137,7 +134,7 @@ class ServerlessSharedApiGateway {
 
     await this.findRestApi()
     await this.loadResourcesForApi()
-    this.findResourceId()
+    this.findRootResourceId()
     this._updateReferencesInCloudFormation()
     this._findAndRemoveExistingResources()
   }
@@ -217,7 +214,7 @@ class ServerlessSharedApiGateway {
     })
   }
 
-  findResourceId () {
+  findRootResourceId () {
     this._initializeVariables()
 
     if (!this.restApiId) throw new Error(`You must have a restApiId. Did you forget to run findRestApi?`)
