@@ -1,0 +1,45 @@
+service:
+  name: panda
+
+provider:
+  name: aws
+  runtime: nodejs8.10
+  environment:
+    NODE_ENV: "dev"
+    SERVICE_NAME: ${self:service.name}
+
+functions:
+  create:
+    handler: src/handler.create
+    events:
+      - http:
+          method: post
+          path: "pandas"
+          cors: true
+    environment:
+      NODE_ENV: "test"
+#  remove:
+#      handler: src/handler.remove
+#      events:
+#        - http:
+#            method: delete
+#            path: "pandas/{pandaId}"
+#            cors: true
+#  get:
+#    handler: src/handler.get
+#    events:
+#      - http:
+#          method: get
+#          path: "pandas/{pandaId}"
+#          cors: true
+#  update:
+#    handler: src/handler.update
+#    events:
+#      - http:
+#          method: put
+#          path: "panda/{pandaId}"
+#          cors: true
+
+custom:
+  localDevPort: 5999
+  debug: true

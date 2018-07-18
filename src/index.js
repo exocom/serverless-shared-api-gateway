@@ -1,6 +1,4 @@
 'use strict'
-
-const AWS = require('aws-sdk')
 const chalk = require('chalk')
 
 class ServerlessSharedApiGateway {
@@ -13,6 +11,7 @@ class ServerlessSharedApiGateway {
     this.restApiId = null
     this.restApiName = null
     this.restApiResourceId = null
+    this.resources = null
 
     this.commands = {
       shared_api_gateway: {
@@ -44,16 +43,16 @@ class ServerlessSharedApiGateway {
       'shared_api_gateway:create:create': this.createRestApi.bind(this),
       'after:package:compileEvents': this.compileEvents.bind(this),
       'after:info:info': this.summary.bind(this),
+      // https://gist.github.com/HyperBrain/50d38027a8f57778d5b0f135d80ea406
+      // https://serverless.com/framework/docs/providers/aws/guide/plugins/
+      // 'after:aws:info:gatherData': this.summary.bind(this)
     }
   }
 
   _initializeVariables () {
     if (!this.initialized) {
-      // Sets the credentials for AWS resources.
       const awsCreds = this.serverless.providers.aws.getCredentials()
-      AWS.config.update(awsCreds)
-      this.apiGateway = new AWS.APIGateway()
-
+      this.apiGateway = new this.serverless.providers.aws.sdk.APIGateway(awsCreds)
       this.initialized = true
     }
   }
@@ -75,7 +74,6 @@ class ServerlessSharedApiGateway {
 
   deleteRestApi () {
     this._initializeVariables()
-
     return null
   }
 
@@ -88,7 +86,7 @@ class ServerlessSharedApiGateway {
     })
   }
 
-  _processCloudFormation () {
+  _updateReferencesInCloudFormation () {
     const plugin = this.serverless.pluginManager.plugins.find(plugin => plugin.apiGatewayRestApiLogicalId)
     this.apiGatewayRestApiLogicalId = plugin && plugin.apiGatewayRestApiLogicalId
 
@@ -108,8 +106,7 @@ class ServerlessSharedApiGateway {
     if (Resources.pathmapping) Resources.pathmapping.Properties.RestApiId = this.restApiId
 
     if (this.apiGatewayRestApiLogicalId) {
-      const resourceKeys = Object.keys(Resources)
-      resourceKeys.forEach(key => {
+      Object.keys(Resources).forEach(key => {
         if (/^ApiGateway(Resource|Method|Deployment)/.test(key)) {
           let Properties = Resources[key].Properties
           // Set restApiId on each Resource, Method, & Deployment
@@ -128,16 +125,30 @@ class ServerlessSharedApiGateway {
     }
   }
 
-  compileEvents () {
+  async compileEvents () {
     this.restApiId = this.serverless.service.provider.apiGatewayRestApiId
     this.restApiName = this.serverless.service.provider.apiGatewayRestApiName
     this.restApiResourceId = this.serverless.service.provider.apiGatewayRestApiResourceId
 
     if (!this.restApiId && !this.restApiName) throw new Error(`Unable to continue please provide an apiId or apiName`)
 
-    return this.findRestApi()
-      .then(() => this.findResourceId())
-      .then(() => this._processCloudFormation())
+    await this.findRestApi()
+    await this.loadResourcesForApi()
+    this.findRootResourceId()
+    this._updateReferencesInCloudFormation()
+    this._findAndRemoveExistingResources()
+  }
+
+  async loadResourcesForApi () {
+    let hasMoreResults = true
+    let currentPosition = null
+    this.resources = []
+    do {
+      const {position, items} = await this.apiGateway.getResources({position: currentPosition, restApiId: this.restApiId, limit: 500}).promise()
+      this.resources = this.resources.concat(items)
+      currentPosition = position
+      hasMoreResults = position && items.length === 500
+    } while (hasMoreResults)
   }
 
   _findMatchingRestApi (api) {
@@ -146,53 +157,73 @@ class ServerlessSharedApiGateway {
     return false
   }
 
-  findRestApi () {
+  async findRestApi () {
     this._initializeVariables()
 
-    const getRestApis = this.apiGateway.getRestApis({}).promise()
-    return getRestApis.then((data) => {
-      if (this.restApiName) {
-        let matchingRestApis = data.items.filter(api => this._findMatchingRestApi(api))
-        if (matchingRestApis && matchingRestApis.length > 1) throw new Error(`Found multiple APIs with the name: ${this.restApiName}. Please rename your api or specify an apiGatewayRestApiId`)
-        let provider = this.serverless.getProvider('aws')
-        if (provider) provider.naming.getApiGatewayName = () => this.restApiName
-      }
+    const {items} = await this.apiGateway.getRestApis({}).promise()
+    if (!Array.isArray(items)) return
 
-      let matchingRestApi = data.items.find(api => this._findMatchingRestApi(api))
-      if (this.restApiName && !matchingRestApi) {
-        this.serverless.cli.log(`No API Gateway matching '${this.restApiName}' attempting to create it.`)
+    if (this.restApiName) {
+      let matchingRestApis = items.filter(api => this._findMatchingRestApi(api))
+      if (matchingRestApis && matchingRestApis.length > 1) throw new Error(`Found multiple APIs with the name: ${this.restApiName}. Please rename your api or specify an apiGatewayRestApiId`)
+      let provider = this.serverless.getProvider('aws')
+      if (provider) provider.naming.getApiGatewayName = () => this.restApiName
+    }
 
-        return this.createRestApi()
+    let matchingRestApi = items.find(api => this._findMatchingRestApi(api))
+    if (this.restApiName && !matchingRestApi) {
+      this.serverless.cli.log(`No API Gateway matching '${this.restApiName}' attempting to create it.`)
+      matchingRestApi = await this.createRestApi()
+    }
+
+    this.restApiId = matchingRestApi.id
+    this.restApiName = matchingRestApi.name
+  }
+
+  findExistingResources () {
+    if (!this.resources) throw new Error(`You must have a list of the current resources. Did you forget to run loadResourcesForApi?`)
+
+    const Resources = this.serverless.service.provider.compiledCloudFormationTemplate.Resources
+    return Object.keys(Resources).reduce((arr, key) => {
+      const item = Resources[key]
+      if (item.Type === 'AWS::ApiGateway::Resource') {
+        const match = this.resources.find(r => r.pathPart === item.Properties.PathPart && r.parentId === item.Properties.ParentId) || null
+        if (match) arr.push({key, id: match.id, parentId: match.parentId})
       }
-      return matchingRestApi
-    }).then(restApi => {
-      this.restApiId = restApi.id
-      this.restApiName = restApi.name
+      return arr
+    }, [])
+  }
+
+  _findAndRemoveExistingResources () {
+    const existingResources = this.findExistingResources()
+    const Resources = this.serverless.service.provider.compiledCloudFormationTemplate.Resources
+
+    // Remove existing resources from the cloud formation
+    existingResources.forEach(er => {
+      delete Resources[er.key]
+    })
+
+    // Update the remaining resources to point to the existing resource
+    Object.keys(Resources).forEach(key => {
+      let item = Resources[key]
+      if (item.Type === 'AWS::ApiGateway::Resource') {
+        let ref = item.Properties.ParentId && item.Properties.ParentId.Ref
+        let match = existingResources.find(er => er.key === ref)
+        if (match) item.Properties.ParentId = match.id
+      }
     })
   }
 
-  _findMatchingResource (resource) {
-    if (this.restApiResourceId) return resource.id === this.restApiResourceId
-    else return resource.path === '/'
-  }
-
-  findResourceId () {
+  findRootResourceId () {
     this._initializeVariables()
 
     if (!this.restApiId) throw new Error(`You must have a restApiId. Did you forget to run findRestApi?`)
+    if (!this.resources) throw new Error(`You must have a list of the current resources. Did you forget to run loadResourcesForApi?`)
 
-    // TODO: Ideally this should handle pagination. If there are more than 500 resources it should make several calls with different "position" values
-    // Ref: https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/APIGateway.html#getResources-property
-    const getResources = this.apiGateway.getResources({restApiId: this.restApiId, limit: 500}).promise()
+    let matchingResource = this.resources.find(resource => this.restApiResourceId ? resource.id === this.restApiResourceId : resource.path === '/')
+    if (!matchingResource) throw new Error('Unable to find a matching API Gateway resource. Please check the id and try again.')
 
-    return getResources.then(data => {
-      let matchingResource = data.items.find(resource => this._findMatchingResource(resource))
-      if (!matchingResource) console.log('Unable to find a matching API Gateway resource. Please check the id and try again.')
-
-      return matchingResource
-    }).then(resource => {
-      this.restApiResourceId = resource.id
-    })
+    this.restApiResourceId = matchingResource.id
   }
 
   summary () {

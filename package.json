@@ -1,15 +1,15 @@
 {
   "name": "@kalarrs/serverless-shared-api-gateway",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "engines": {
-    "node": ">=6.0"
+    "node": ">=9.0"
   },
   "description": "Share a single AWS Api Gatewy between multiple serverless projects",
   "author": "Kalarrs Topham",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/exocom/serverless-shared-api-gateway"
+    "url": "https://github.com/kalarrs/serverless-shared-api-gateway"
   },
   "keywords": [
     "serverless",
@@ -23,22 +23,17 @@
     "lint": "standard"
   },
   "dependencies": {
-    "aws-sdk": "^2.145.0",
-    "chalk": "^2.3.2",
-    "dotenv": "^4.0.0"
+    "chalk": "^2.3.2"
   },
   "devDependencies": {
     "aws-sdk-mock": "^1.7.0",
     "chai": "^4.1.2",
     "chai-as-promised": "^7.1.1",
     "mocha": "^4.0.1",
-    "moment": "^2.21.0",
     "nyc": "^11.3.0",
-    "serverless": "^1.24.0",
+    "serverless": "^1.26.0",
     "serverless-domain-manager": "^1.1.16",
-    "serverless-webpack": "^3.1.2",
     "sinon": "^4.1.1",
-    "standard": "^10.0.3",
-    "webpack": "^3.8.1"
+    "standard": "^10.0.3"
   }
 }
