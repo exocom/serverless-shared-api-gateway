@@ -43,3 +43,8 @@ functions:
 custom:
   localDevPort: 5999
   debug: true
+
+  apiGatewayBinaryMimeTypes:
+    - "audio/mpeg"
+    - "image/jpeg"
+    - "text/html"

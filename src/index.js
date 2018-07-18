@@ -34,6 +34,10 @@ class ServerlessSharedApiGateway {
             'initialize',
             'delete'
           ]
+        },
+        binary: {
+          usage: 'Adds binary support to your shared api gateway!',
+          lifecycleEvents: ['update']
         }
       }
     }
@@ -42,6 +46,7 @@ class ServerlessSharedApiGateway {
       'shared_api_gateway:delete:delete': this.deleteRestApi.bind(this),
       'shared_api_gateway:create:create': this.createRestApi.bind(this),
       'after:package:compileEvents': this.compileEvents.bind(this),
+      'binary:update': this.updateBinaryMediaTypes.bind(this),
       'after:info:info': this.summary.bind(this),
       // https://gist.github.com/HyperBrain/50d38027a8f57778d5b0f135d80ea406
       // https://serverless.com/framework/docs/providers/aws/guide/plugins/
@@ -57,9 +62,29 @@ class ServerlessSharedApiGateway {
     }
   }
 
-  createRestApi () {
+  async updateBinaryMediaTypes () {
     this._initializeVariables()
 
+    const mimeTypes = this.serverless.service.custom.apiGatewayBinaryMimeTypes
+    if (!mimeTypes.length) return
+
+    await this.apiGateway.putRestApi({
+      restApiId: this.restApiId,
+      mode: 'merge',
+      body: {
+        swagger: '2.0',
+        info: {
+          title: this.restApiName
+        },
+        'x-amazon-apigateway-binary-media-types': mimeTypes
+      }
+    }).promise()
+  }
+
+  async createRestApi () {
+    this._initializeVariables()
+
+    await this.findRestApi()
     return this.apiGateway.createRestApi({
       name: this.restApiName,
       // binaryMediaTypes: [],
