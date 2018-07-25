@@ -22,6 +22,8 @@ describe('index.js', () => {
     await serverless.init()
     serverless.pluginManager.addPlugin(ServerlessSharedApiGateway)
     serverlessSharedApiGateway = serverless.pluginManager.plugins.find(p => p instanceof ServerlessSharedApiGateway)
+    const provider = serverless.getProvider(serverless.service.provider.name)
+    AWS.setSDKInstance(provider.sdk)
   }
 
   const runServerlessPackage = () => {
