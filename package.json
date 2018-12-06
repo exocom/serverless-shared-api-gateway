@@ -23,7 +23,7 @@
     "lint": "standard"
   },
   "dependencies": {
-    "chalk": "^2.3.2"
+    "chalk": "^2.4.1"
   },
   "devDependencies": {
     "aws-sdk-mock": "^1.7.0",
