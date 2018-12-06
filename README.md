@@ -41,6 +41,10 @@ plugins:
 ```
 
 
+# NOTES
+After updating the binary media type, the api must be deployed for the changes to take effect.
+
+
 # License & Credits
 
 Licensed under the MIT license.

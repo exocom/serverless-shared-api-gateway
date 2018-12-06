@@ -79,6 +79,8 @@ class ServerlessSharedApiGateway {
         'x-amazon-apigateway-binary-media-types': mimeTypes
       }
     }).promise()
+
+    console.log('Api must be deployed before the changes will take effect')
   }
 
   async createRestApi () {
